@@ -5,7 +5,6 @@ use anyhow::{bail, ensure, Context, Result};
 use clap::Parser;
 use git2::{ErrorClass, ErrorCode, Repository};
 use std::{
-    env,
     fs::{self, File},
     io::BufReader,
     path::PathBuf,
@@ -51,7 +50,6 @@ fn main() -> Result<()> {
     );
 
     fs::create_dir_all(&opts.prefix)?;
-    env::set_current_dir(&opts.prefix)?;
 
     // Check repo types
     for info in repos_list.repositories.values() {
@@ -64,7 +62,8 @@ fn main() -> Result<()> {
     }
 
     // Add each repo as a submodule
-    for (path, info) in &repos_list.repositories {
+    for (name, info) in &repos_list.repositories {
+        let path = opts.prefix.join(name);
         let Repo { url, version, .. } = info;
         println!("Adding {}", path.display());
 
@@ -77,14 +76,14 @@ fn main() -> Result<()> {
                 Ok(submod) => submod,
                 Err(err) => {
                     if err.class() == ErrorClass::Submodule && err.code() == ErrorCode::NotFound {
-                        add_submodule(url, path)?
+                        add_submodule(url, &path)?
                     } else {
                         return Err(err.into());
                     }
                 }
             }
         } else {
-            add_submodule(url, path)?
+            add_submodule(url, &path)?
         };
 
         let subrepo = submod.open()?;
