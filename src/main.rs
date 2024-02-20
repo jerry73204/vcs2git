@@ -12,7 +12,7 @@ use std::{
 use url::Url;
 use vcs::ReposFile;
 
-/// It reads a VCS repos file and add listed reposotires as Git
+/// It reads a VCS repos file and add listed repositories as Git
 /// submodules.
 #[derive(Debug, Clone, Parser)]
 struct Opts {
@@ -22,9 +22,9 @@ struct Opts {
     /// The directory to add submodules.
     pub prefix: PathBuf,
 
-    /// Checkout the files in each submodule.
+    /// Do not checkout the files in each submodule.
     #[clap(long)]
-    pub checkout: bool,
+    pub nocheckout: bool,
 
     /// Overwrite existing submodules.
     #[clap(long)]
@@ -93,7 +93,7 @@ fn main() -> Result<()> {
             .fetch(&[version], None, None)?;
 
         let spec = format!("origin/{version}");
-        checkout(&subrepo, &spec, opts.checkout)?;
+        checkout(&subrepo, &spec, !opts.nocheckout)?;
 
         submod.add_finalize()?;
     }
