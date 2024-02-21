@@ -5,7 +5,7 @@
 Install the binary using Cargo.
 
 ```bash
-cargo install --git https://github.com/jerry73204/vcs2git.git
+cargo install vcs2git
 ```
 
 ## Usage
