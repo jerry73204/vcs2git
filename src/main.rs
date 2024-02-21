@@ -70,6 +70,9 @@ fn main() -> Result<()> {
         let add_submodule = |url: &Url, path| root_repo.submodule(url.as_str(), path, true);
 
         let mut submod = if opts.overwrite {
+            // In overwrite mode, Check if the submodule exists
+            // first. Skip adding submod if yes.
+
             let name = path.to_str().unwrap();
 
             match root_repo.find_submodule(name) {
@@ -88,12 +91,30 @@ fn main() -> Result<()> {
 
         let subrepo = submod.open()?;
 
+        // Get remote branches and tags
         subrepo
             .find_remote("origin")?
             .fetch(&[version], None, None)?;
 
-        let spec = format!("origin/{version}");
-        checkout(&subrepo, &spec, !opts.nocheckout)?;
+        {
+            // Try to checkout using the version name directly.  It
+            // works when the name is a commit hash.
+            let result = checkout(&subrepo, version, !opts.nocheckout);
+
+            match result {
+                Ok(()) => {}
+                Err(err)
+                    if err.class() == ErrorClass::Reference
+                        && err.code() == ErrorCode::NotFound =>
+                {
+                    // In case of reference not found error, checkout
+                    // to remote branch instead.
+                    let spec = format!("origin/{version}");
+                    checkout(&subrepo, &spec, !opts.nocheckout)?;
+                }
+                Err(err) => return Err(err.into()),
+            }
+        }
 
         submod.add_finalize()?;
     }
