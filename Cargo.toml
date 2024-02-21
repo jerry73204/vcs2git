@@ -1,9 +1,12 @@
 [package]
 name = "vcs2git"
 version = "0.2.0"
+description = "Import VCS .repos as Git submodules"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "MIT"
+documentation = "https://docs.rs/vcs2git/"
+homepage = "https://github.com/jerry73204/vcs2git/"
+repository = "https://github.com/jerry73204/vcs2git.git"
 
 [dependencies]
 anyhow = { version = "1.0.79", features = ["backtrace"] }
