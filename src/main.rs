@@ -3,7 +3,7 @@ mod vcs;
 use crate::vcs::{Repo, RepoType};
 use anyhow::{bail, ensure, Context, Result};
 use clap::Parser;
-use git2::{ErrorClass, ErrorCode, Repository};
+use git2::{Cred, ErrorClass, ErrorCode, FetchOptions, RemoteCallbacks, Repository};
 use std::{
     fs::{self, File},
     io::BufReader,
@@ -92,9 +92,15 @@ fn main() -> Result<()> {
         let subrepo = submod.open()?;
 
         // Get remote branches and tags
+        let mut cb = RemoteCallbacks::new();
+        cb.credentials(|_url, username, _allowed_types| {
+            Cred::ssh_key_from_agent(username.unwrap())
+        });
+        let mut fetch_opts = FetchOptions::new();
+        fetch_opts.remote_callbacks(cb);
         subrepo
             .find_remote("origin")?
-            .fetch(&[version], None, None)?;
+            .fetch(&[version], Some(&mut fetch_opts), None)?;
 
         {
             // Try to checkout using the version name directly.  It
