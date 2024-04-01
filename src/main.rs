@@ -5,6 +5,7 @@ use anyhow::{bail, ensure, Context, Result};
 use clap::Parser;
 use git2::{Cred, ErrorClass, ErrorCode, FetchOptions, RemoteCallbacks, Repository};
 use std::{
+    collections::HashSet,
     fs::{self, File},
     io::BufReader,
     path::PathBuf,
@@ -21,6 +22,13 @@ struct Opts {
 
     /// The directory to add submodules.
     pub prefix: PathBuf,
+
+    /// If provided, only specified repositories are processed.
+    pub repositories: Option<Vec<PathBuf>>,
+
+    /// One or more repositories to be ignored.
+    #[clap(long)]
+    pub skip: Option<Vec<PathBuf>>,
 
     /// Do not checkout the files in each submodule.
     #[clap(long)]
@@ -49,6 +57,21 @@ fn main() -> Result<()> {
         "The prefix must be a relative path"
     );
 
+    let selected_names: Option<HashSet<_>> = match &opts.repositories {
+        Some(names) => {
+            let selected_names: HashSet<_> = names.iter().collect();
+            let all_names: HashSet<_> = repos_list.repositories.keys().collect();
+            let diff_names: Vec<_> = selected_names.difference(&all_names).collect();
+            ensure!(
+                diff_names.is_empty(),
+                "Repositories not found: {diff_names:?}"
+            );
+            Some(selected_names)
+        }
+        None => None,
+    };
+    let skipped_names: HashSet<_> = opts.skip.iter().flatten().collect();
+
     fs::create_dir_all(&opts.prefix)?;
 
     // Check repo types
@@ -63,6 +86,16 @@ fn main() -> Result<()> {
 
     // Add each repo as a submodule
     for (name, info) in &repos_list.repositories {
+        if let Some(selected_names) = &selected_names {
+            if !selected_names.contains(name) {
+                continue;
+            }
+        }
+
+        if skipped_names.contains(name) {
+            continue;
+        }
+
         let path = opts.prefix.join(name);
         let Repo { url, version, .. } = info;
         println!("Adding {}", path.display());
