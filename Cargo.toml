@@ -1,6 +1,6 @@
 [package]
 name = "vcs2git"
-version = "0.2.0"
+version = "0.3.0"
 description = "Import VCS .repos as Git submodules"
 edition = "2021"
 license = "MIT"
