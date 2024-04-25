@@ -2,7 +2,7 @@ mod vcs;
 
 use crate::vcs::{Repo, RepoType};
 use anyhow::{bail, ensure, Context, Result};
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use git2::{Cred, ErrorClass, ErrorCode, FetchOptions, RemoteCallbacks, Repository};
 use std::{
     collections::{HashMap, HashSet},
@@ -42,14 +42,6 @@ struct Opts {
     // /// Remove submodules that are not required.
     // #[clap(long)]
     // pub remove_nonselected: bool,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ValueEnum)]
-enum UpdateStrategy {
-    Skip,
-    Checkout,
-    Rebase,
-    Merge,
 }
 
 fn main() -> Result<()> {
