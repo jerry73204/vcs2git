@@ -1,48 +1,29 @@
+mod cli;
+mod git_ops;
+mod progress;
+mod state;
+mod utils;
+mod validation;
 mod vcs;
 
-use crate::vcs::{Repo, RepoType};
+use crate::{
+    cli::Opts,
+    git_ops::{checkout_to_version, fetch, remove_submodule},
+    progress::ProgressReporter,
+    state::SubmoduleStateTracker,
+    utils::{check_disjoint, check_subset},
+    validation::{validate_main_repo_clean, validate_repositories, validate_submodule_states},
+    vcs::{Repo, RepoType, ReposFile},
+};
 use anyhow::{bail, ensure, Context, Result};
 use clap::Parser;
-use git2::{Cred, ErrorClass, ErrorCode, FetchOptions, RemoteCallbacks, Repository};
+use git2::Repository;
 use std::{
     collections::{HashMap, HashSet},
-    fmt::Debug,
     fs::{self, File},
-    hash::Hash,
     io::BufReader,
     path::{Path, PathBuf},
 };
-use vcs::ReposFile;
-
-/// It reads a VCS repos file and add listed repositories as Git
-/// submodules.
-#[derive(Debug, Clone, Parser)]
-struct Opts {
-    /// The YAML file of a repository list.
-    pub repo_file: PathBuf,
-
-    /// The directory to add submodules.
-    pub prefix: PathBuf,
-
-    /// If provided, only specified repositories are processed.
-    #[clap(long)]
-    pub select: Option<Vec<PathBuf>>,
-
-    /// One or more repositories to be ignored.
-    #[clap(long)]
-    pub skip: Option<Vec<PathBuf>>,
-
-    /// Do not checkout the files in each submodule.
-    #[clap(long)]
-    pub no_checkout: bool,
-
-    /// Checkout to new commit for existing submodules.
-    #[clap(long)]
-    pub update: bool,
-    // /// Remove submodules that are not required.
-    // #[clap(long)]
-    // pub remove_nonselected: bool,
-}
 
 fn main() -> Result<()> {
     let opts = Opts::parse();
@@ -73,6 +54,17 @@ fn main() -> Result<()> {
         "The prefix must be a relative path"
     );
 
+    // Validate repository configuration
+    validate_repositories(&repos_list.repositories, &opts.prefix)?;
+
+    // Check for uncommitted changes in the main repository
+    validate_main_repo_clean(&root_repo)?;
+
+    // Validate existing submodule states
+    println!("Checking existing submodule states...");
+    validate_submodule_states(&root_repo)?;
+    println!("All validation checks passed.");
+
     let selected_repos: HashMap<PathBuf, _> = {
         let all_suffixes: HashSet<&Path> = repos_list
             .repositories
@@ -81,7 +73,7 @@ fn main() -> Result<()> {
             .collect();
         let skipped_suffixes = {
             let suffixes: HashSet<&Path> = opts
-                .skip
+                .get_ignored()
                 .iter()
                 .flatten()
                 .map(|path| path.as_path())
@@ -89,7 +81,7 @@ fn main() -> Result<()> {
             check_subset(&all_suffixes, &suffixes)?;
             suffixes
         };
-        let selected_suffixes: HashSet<&Path> = match &opts.select {
+        let selected_suffixes: HashSet<&Path> = match opts.get_selected() {
             Some(names) => {
                 let suffixes: HashSet<_> = names.iter().map(|path| path.as_path()).collect();
                 check_subset(&all_suffixes, &suffixes)?;
@@ -117,73 +109,136 @@ fn main() -> Result<()> {
         match &info.r#type {
             RepoType::Git => (),
             RepoType::Unknown(ty) => {
-                bail!("Repository type '{ty}' is supported");
+                bail!("Repository type '{ty}' is not supported. Only 'git' repositories are supported.");
             }
         }
     }
 
-    let selected_paths: HashSet<&Path> = selected_repos.keys().map(|p| p.as_path()).collect();
-    let submod_paths: HashSet<&Path> = submod_names.keys().map(|p| p.as_path()).collect();
-
-    let (new_repos, updated_submods, removed_repos) = {
-        let new_paths = selected_paths.difference(&submod_paths);
-        let updated_paths = selected_paths.intersection(&submod_paths);
-        let removed_paths = submod_paths
-            .difference(&selected_paths)
-            .filter(|path| path.starts_with(&opts.prefix));
-
-        let mut new_repos: Vec<(&Path, _)> = new_paths
-            .map(|&path| (path, &selected_repos[path]))
-            .collect();
-        new_repos.sort_unstable_by(|(lp, _), (rp, _)| lp.cmp(rp));
-
-        let mut updated_repos: Vec<(&Path, _)> = {
-            updated_paths
-                .map(|&path| {
-                    let repo = &selected_repos[path];
-                    let submod_name = &submod_names[path];
-                    (path, (submod_name, repo))
-                })
-                .collect()
-        };
-        updated_repos.sort_unstable_by(|(lp, _), (rp, _)| lp.cmp(rp));
-
-        let mut removed_submods: Vec<(&Path, _)> = removed_paths
-            .map(|&path| (path, &submod_names[path]))
-            .collect();
-        removed_submods.sort_unstable_by(|(lp, _), (rp, _)| lp.cmp(rp));
-
-        (new_repos, updated_repos, removed_submods)
-    };
+    let (new_repos, updated_submods, removed_repos) =
+        classify_submodules(&selected_repos, &submod_names, &opts.prefix);
 
     fs::create_dir_all(&opts.prefix)?;
 
-    // Add new repos
-    for (path, info) in &new_repos {
-        println!("Add {}", path.display());
-        let Repo { url, version, .. } = info;
+    // Capture original state before any modifications
+    let tracker = SubmoduleStateTracker::new(&root_repo)?;
 
-        let mut submod = root_repo.submodule(url.as_str(), path, true)?;
-        let subrepo = submod.open()?;
+    // Calculate total operations for progress reporting
+    let total_operations = new_repos.len()
+        + if opts.should_update() {
+            updated_submods.len()
+        } else {
+            0
+        }
+        + if opts.sync_selection {
+            removed_repos.len()
+        } else {
+            0
+        };
 
-        // Get remote branches and tags
-        fetch(&subrepo, "origin", version)?;
+    // Create progress reporter
+    let progress = ProgressReporter::new(opts.progress, total_operations as u64);
 
-        // Checkout
-        checkout_to_version(&subrepo, version, !opts.no_checkout)?;
+    // Track which operations we've completed
+    let mut completed_new = Vec::new();
 
-        submod.add_finalize()?;
+    // Process all operations with rollback on failure
+    let result = process_submodule_operations(
+        &mut root_repo,
+        &new_repos,
+        &updated_submods,
+        &removed_repos,
+        &opts,
+        &mut completed_new,
+        &progress,
+    );
+
+    // Handle rollback if operation failed
+    if let Err(e) = result {
+        if !opts.dry_run {
+            eprintln!("\nOperation failed. Rolling back all changes...");
+
+            // Remove any newly added submodules
+            for path in completed_new {
+                if let Err(remove_err) = remove_submodule(&root_repo, path) {
+                    eprintln!(
+                        "Warning: Failed to remove {}: {}",
+                        path.display(),
+                        remove_err
+                    );
+                }
+            }
+
+            // Clean up .gitmodules if no submodules remain
+            let gitmodules_path = PathBuf::from(".gitmodules");
+            if gitmodules_path.exists() {
+                // Check if any submodules remain
+                let submodules = root_repo.submodules()?;
+                if submodules.is_empty() {
+                    // No submodules left, remove .gitmodules
+                    fs::remove_file(&gitmodules_path)?;
+                }
+            }
+
+            // Restore original states
+            if let Err(rollback_err) = tracker.rollback(&root_repo) {
+                eprintln!("Error during rollback: {rollback_err}");
+            }
+
+            bail!("Operation failed and was rolled back: {}", e);
+        } else {
+            bail!("Operation failed: {}", e);
+        }
     }
 
-    if opts.update {
-        for (path, (submod_name, info)) in updated_submods {
-            println!("Update {}", path.display());
+    // Only show found extras if not syncing
+    if !opts.sync_selection {
+        for (path, _submod_name) in removed_repos {
+            println!("Found extra submodule {}", path.display());
+        }
+    }
 
-            let Repo { url, version, .. } = info;
+    if opts.progress {
+        progress.finish_with_message("All operations completed successfully!");
+    } else {
+        println!("\nAll operations completed successfully!");
+    }
 
-            root_repo.submodule_set_url(submod_name, url.as_str())?;
-            let mut submod = root_repo.find_submodule(submod_name)?;
-            let subrepo = submod.open()?;
+    Ok(())
+}
+
+fn process_submodule_operations<'a>(
+    root_repo: &mut Repository,
+    new_repos: &[(&'a Path, &'a &'a Repo)],
+    updated_submods: &[(&'a Path, (&'a String, &'a &'a Repo))],
+    removed_repos: &[(&'a Path, &'a String)],
+    opts: &Opts,
+    completed_new: &mut Vec<&'a Path>,
+    progress: &ProgressReporter,
+) -> Result<()> {
+    // Add new repos
+    for (path, info) in new_repos {
+        if opts.dry_run {
+            progress.println(&format!("[DRY RUN] Would add {}", path.display()));
+            progress.inc(1);
+            continue;
+        }
+
+        progress.set_message(&format!("Adding {}", path.display()));
+        let Repo { url, version, .. } = info;
+
+        // Track the path before attempting to create submodule
+        let result = (|| -> Result<()> {
+            let mut submod = root_repo.submodule(url.as_str(), path, true)?;
+            // At this point, .gitmodules has been modified
+
+            let subrepo = match submod.open() {
+                Ok(repo) => repo,
+                Err(e) => {
+                    // Submodule was created but clone failed - need cleanup
+                    eprintln!("Failed to clone submodule: {e}");
+                    return Err(e.into());
+                }
+            };
 
             // Get remote branches and tags
             fetch(&subrepo, "origin", version)?;
@@ -192,92 +247,244 @@ fn main() -> Result<()> {
             checkout_to_version(&subrepo, version, !opts.no_checkout)?;
 
             submod.add_finalize()?;
+            Ok(())
+        })();
+
+        match result {
+            Ok(_) => {
+                completed_new.push(path);
+                progress.inc(1);
+            }
+            Err(e) => {
+                eprintln!("Failed to add {}: {}", path.display(), e);
+                // The submodule entry was created but operation failed
+                completed_new.push(path);
+                return Err(e);
+            }
+        }
+    }
+
+    if opts.should_update() {
+        for (path, (submod_name, info)) in updated_submods {
+            if opts.dry_run {
+                progress.println(&format!("[DRY RUN] Would update {}", path.display()));
+                progress.inc(1);
+                continue;
+            }
+
+            progress.set_message(&format!("Updating {}", path.display()));
+            let Repo { url, version, .. } = info;
+            let result = (|| -> Result<()> {
+                root_repo.submodule_set_url(submod_name, url.as_str())?;
+                let mut submod = root_repo.find_submodule(submod_name)?;
+                let subrepo = submod.open()?;
+
+                // Get remote branches and tags
+                fetch(&subrepo, "origin", version)?;
+
+                // Checkout
+                checkout_to_version(&subrepo, version, !opts.no_checkout)?;
+
+                submod.add_finalize()?;
+                Ok(())
+            })();
+
+            match result {
+                Ok(_) => {
+                    progress.inc(1);
+                }
+                Err(e) => {
+                    eprintln!("Failed to update {}: {}", path.display(), e);
+                    return Err(e);
+                }
+            }
         }
     } else {
         for (path, _) in updated_submods {
-            println!("Skip existing {}", path.display());
+            progress.println(&format!("Skip existing {}", path.display()));
         }
     }
 
-    for (path, _submod_name) in removed_repos {
-        println!("Found extra submodule {}", path.display());
-    }
+    // Handle --sync-selection: remove submodules not in current selection
+    if opts.sync_selection {
+        for (path, _submod_name) in removed_repos {
+            if opts.dry_run {
+                progress.println(&format!("[DRY RUN] Would remove {}", path.display()));
+                progress.inc(1);
+                continue;
+            }
 
-    Ok(())
-}
+            progress.set_message(&format!("Removing {}", path.display()));
 
-fn check_subset<T>(all: &HashSet<T>, subset: &HashSet<T>) -> Result<()>
-where
-    T: Eq + Hash + Debug,
-{
-    if !all.is_superset(subset) {
-        let diff: Vec<_> = subset.difference(all).collect();
-        bail!("Repositories not found: {diff:?}");
-    }
-
-    Ok(())
-}
-
-fn check_disjoint<T>(lset: &HashSet<T>, rset: &HashSet<T>) -> Result<()>
-where
-    T: Eq + Hash + Debug,
-{
-    if lset.is_disjoint(rset) {
-        let inter: Vec<_> = lset.intersection(rset).collect();
-        bail!("Repositories cannot be selected and skipped at the same time: {inter:?}");
-    }
-
-    Ok(())
-}
-
-fn checkout_to_spec(repo: &Repository, spec: &str, checkout: bool) -> Result<(), git2::Error> {
-    let (obj, ref_) = repo.revparse_ext(spec)?;
-
-    if checkout {
-        repo.checkout_tree(&obj, None)?;
-    }
-
-    match ref_ {
-        Some(ref_) => repo.set_head(ref_.name().unwrap())?,
-        None => repo.set_head_detached(obj.id())?,
-    }
-    Ok(())
-}
-
-fn checkout_to_version(
-    repo: &Repository,
-    version: &str,
-    checkout: bool,
-) -> Result<(), git2::Error> {
-    // Try to checkout using the version name directly.  It
-    // works when the name is a commit hash.
-    let result = checkout_to_spec(repo, version, checkout);
-
-    match result {
-        Ok(()) => {}
-        Err(err) if err.class() == ErrorClass::Reference && err.code() == ErrorCode::NotFound => {
-            // In case of reference not found error, checkout
-            // to remote branch instead.
-            let spec = format!("origin/{version}");
-            checkout_to_spec(repo, &spec, checkout)?;
+            if let Err(e) = remove_submodule(root_repo, path) {
+                eprintln!("Failed to remove {}: {}", path.display(), e);
+                return Err(e);
+            }
+            progress.inc(1);
         }
-        Err(err) => return Err(err),
     }
+
     Ok(())
 }
 
-fn fetch(repo: &Repository, remote: &str, version: &str) -> Result<(), git2::Error> {
-    let cb = {
-        let mut cb = RemoteCallbacks::new();
-        cb.credentials(|_url, username, _allowed_types| {
-            Cred::ssh_key_from_agent(username.unwrap())
-        });
-        cb
+// Type aliases for clarity
+type NewRepos<'a> = Vec<(&'a Path, &'a &'a Repo)>;
+type UpdatedRepos<'a> = Vec<(&'a Path, (&'a String, &'a &'a Repo))>;
+type RemovedRepos<'a> = Vec<(&'a Path, &'a String)>;
+
+fn classify_submodules<'a>(
+    selected_repos: &'a HashMap<PathBuf, &'a Repo>,
+    submod_names: &'a HashMap<PathBuf, String>,
+    prefix: &Path,
+) -> (NewRepos<'a>, UpdatedRepos<'a>, RemovedRepos<'a>) {
+    let selected_paths: HashSet<&Path> = selected_repos.keys().map(|p| p.as_path()).collect();
+    let submod_paths: HashSet<&Path> = submod_names.keys().map(|p| p.as_path()).collect();
+
+    let new_paths = selected_paths.difference(&submod_paths);
+    let updated_paths = selected_paths.intersection(&submod_paths);
+    let removed_paths = submod_paths
+        .difference(&selected_paths)
+        .filter(|path| path.starts_with(prefix));
+
+    let mut new_repos: Vec<(&Path, _)> = new_paths
+        .map(|&path| (path, &selected_repos[path]))
+        .collect();
+    new_repos.sort_unstable_by(|(lp, _), (rp, _)| lp.cmp(rp));
+
+    let mut updated_repos: Vec<(&Path, _)> = {
+        updated_paths
+            .map(|&path| {
+                let repo = &selected_repos[path];
+                let submod_name = &submod_names[path];
+                (path, (submod_name, repo))
+            })
+            .collect()
     };
-    let mut fetch_opts = FetchOptions::new();
-    fetch_opts.remote_callbacks(cb);
-    repo.find_remote(remote)?
-        .fetch(&[version], Some(&mut fetch_opts), None)?;
+    updated_repos.sort_unstable_by(|(lp, _), (rp, _)| lp.cmp(rp));
 
-    Ok(())
+    let mut removed_submods: Vec<(&Path, _)> = removed_paths
+        .map(|&path| (path, &submod_names[path]))
+        .collect();
+    removed_submods.sort_unstable_by(|(lp, _), (rp, _)| lp.cmp(rp));
+
+    (new_repos, updated_repos, removed_submods)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::vcs::{Repo, RepoType};
+    use std::collections::HashMap;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_repository_type_error_message() {
+        let unknown_type = RepoType::Unknown("mercurial".to_string());
+
+        match &unknown_type {
+            RepoType::Git => panic!("Should be unknown type"),
+            RepoType::Unknown(ty) => {
+                let error_msg = format!(
+                    "Repository type '{}' is not supported. Only 'git' repositories are supported.",
+                    ty
+                );
+                assert_eq!(error_msg, "Repository type 'mercurial' is not supported. Only 'git' repositories are supported.");
+            }
+        }
+    }
+
+    #[test]
+    fn test_classify_submodules_all_new() {
+        let mut selected_repos = HashMap::new();
+        let repo1 = Repo {
+            r#type: RepoType::Git,
+            url: "https://github.com/test/repo1".parse().unwrap(),
+            version: "main".to_string(),
+        };
+        let repo2 = Repo {
+            r#type: RepoType::Git,
+            url: "https://github.com/test/repo2".parse().unwrap(),
+            version: "main".to_string(),
+        };
+        selected_repos.insert(PathBuf::from("prefix/repo1"), &repo1);
+        selected_repos.insert(PathBuf::from("prefix/repo2"), &repo2);
+
+        let submod_names = HashMap::new();
+        let prefix = PathBuf::from("prefix");
+
+        let (new, updated, removed) = classify_submodules(&selected_repos, &submod_names, &prefix);
+
+        assert_eq!(new.len(), 2);
+        assert_eq!(updated.len(), 0);
+        assert_eq!(removed.len(), 0);
+    }
+
+    #[test]
+    fn test_classify_submodules_all_existing() {
+        let mut selected_repos = HashMap::new();
+        let repo1 = Repo {
+            r#type: RepoType::Git,
+            url: "https://github.com/test/repo1".parse().unwrap(),
+            version: "main".to_string(),
+        };
+        selected_repos.insert(PathBuf::from("prefix/repo1"), &repo1);
+
+        let mut submod_names = HashMap::new();
+        submod_names.insert(PathBuf::from("prefix/repo1"), "prefix/repo1".to_string());
+
+        let prefix = PathBuf::from("prefix");
+
+        let (new, updated, removed) = classify_submodules(&selected_repos, &submod_names, &prefix);
+
+        assert_eq!(new.len(), 0);
+        assert_eq!(updated.len(), 1);
+        assert_eq!(removed.len(), 0);
+    }
+
+    #[test]
+    fn test_classify_submodules_with_removed() {
+        let selected_repos = HashMap::new();
+
+        let mut submod_names = HashMap::new();
+        submod_names.insert(PathBuf::from("prefix/repo1"), "prefix/repo1".to_string());
+        submod_names.insert(PathBuf::from("prefix/repo2"), "prefix/repo2".to_string());
+        submod_names.insert(PathBuf::from("other/repo3"), "other/repo3".to_string());
+
+        let prefix = PathBuf::from("prefix");
+
+        let (new, updated, removed) = classify_submodules(&selected_repos, &submod_names, &prefix);
+
+        assert_eq!(new.len(), 0);
+        assert_eq!(updated.len(), 0);
+        assert_eq!(removed.len(), 2); // Only repos under prefix
+    }
+
+    #[test]
+    fn test_classify_submodules_mixed() {
+        let mut selected_repos = HashMap::new();
+        let repo1 = Repo {
+            r#type: RepoType::Git,
+            url: "https://github.com/test/repo1".parse().unwrap(),
+            version: "main".to_string(),
+        };
+        let repo2 = Repo {
+            r#type: RepoType::Git,
+            url: "https://github.com/test/repo2".parse().unwrap(),
+            version: "main".to_string(),
+        };
+        selected_repos.insert(PathBuf::from("prefix/repo1"), &repo1);
+        selected_repos.insert(PathBuf::from("prefix/repo2"), &repo2);
+
+        let mut submod_names = HashMap::new();
+        submod_names.insert(PathBuf::from("prefix/repo1"), "prefix/repo1".to_string());
+        submod_names.insert(PathBuf::from("prefix/repo3"), "prefix/repo3".to_string());
+
+        let prefix = PathBuf::from("prefix");
+
+        let (new, updated, removed) = classify_submodules(&selected_repos, &submod_names, &prefix);
+
+        assert_eq!(new.len(), 1); // repo2 is new
+        assert_eq!(updated.len(), 1); // repo1 exists
+        assert_eq!(removed.len(), 1); // repo3 should be removed
+    }
 }

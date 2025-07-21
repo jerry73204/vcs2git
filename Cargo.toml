@@ -1,6 +1,6 @@
 [package]
 name = "vcs2git"
-version = "0.3.0"
+version = "0.4.0"
 description = "Import VCS .repos as Git submodules"
 edition = "2021"
 license = "MIT"
@@ -16,3 +16,7 @@ indexmap = { version = "2.2.3", features = ["serde"] }
 serde = { version = "1.0.196", features = ["derive"] }
 serde_yaml = "0.9.31"
 url = { version = "2.5.0", features = ["serde"] }
+indicatif = "0.17"
+
+[dev-dependencies]
+tempfile = "3.10"

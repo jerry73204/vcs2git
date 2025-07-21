@@ -322,3 +322,70 @@ Implement a commit-based rollback strategy that tracks original submodule commit
 - Could add `--partial` flag for users who want to keep successful operations
 - Consider progress persistence for very large operations
 - May need optimization for repositories with hundreds of submodules
+
+---
+
+## ADR-011: CLI Options Redesign for Repository Selection and Synchronization
+
+**Status**: Accepted  
+**Date**: 2025-01-13  
+**Deciders**: Project maintainer  
+
+### Context
+The current CLI options (`--select`, `--skip`, `--update`) have unclear semantics and don't provide a complete solution for repository synchronization. Users need clear options to:
+1. Select which repositories to process
+2. Control whether existing submodules are updated
+3. Remove submodules that should no longer exist
+
+### Current Issues
+- `--select` and `--skip` names are ambiguous
+- No way to remove submodules not in the repos file
+- `--update` flag is counterintuitive (most users expect updates by default)
+- Cannot easily achieve "exact synchronization" with repos file
+
+### Decision
+Redesign CLI options with clearer names and semantics:
+
+1. **Repository Selection** (mutually exclusive):
+   - `--only <repos>`: Process only these listed repositories
+   - `--ignore <repos>`: Process all listed repositories except these
+
+2. **Update Behavior**:
+   - Default: Update existing submodules to match repos file
+   - `--skip-existing`: Don't update existing submodules (previously `--no-update`)
+
+3. **Synchronization**:
+   - `--sync-selection`: Remove submodules not in the current selection
+
+### Behavior Matrix
+
+| Command                                                 | Action                          |
+|---------------------------------------------------------|---------------------------------|
+| `vcs2git repos.yaml prefix`                             | Add new, update existing        |
+| `vcs2git repos.yaml prefix --only A B`                  | Process only A and B            |
+| `vcs2git repos.yaml prefix --ignore C`                  | Process all except C            |
+| `vcs2git repos.yaml prefix --skip-existing`             | Add new only                    |
+| `vcs2git repos.yaml prefix --sync-selection`            | Add/update all, remove unlisted |
+| `vcs2git repos.yaml prefix --only A B --sync-selection` | Keep only A and B               |
+
+### Rationale
+- **Clarity**: `--only` and `--ignore` clearly indicate selection behavior
+- **Intuitive Defaults**: Updating by default matches user expectations
+- **Unified Sync**: One flag handles all removal scenarios based on selection
+- **Flexibility**: Can achieve any desired end state with combinations
+
+### Migration Plan
+1. Deprecate `--select`, `--skip`, `--update` in v0.4.0
+2. Show clear migration messages when old flags are used
+3. Remove old flags in v1.0.0
+
+### Consequences
+- **Positive**:
+  - Clearer mental model for users
+  - More powerful synchronization capabilities
+  - Better default behavior
+  - Simpler documentation
+- **Negative**:
+  - Breaking change requiring migration
+  - Users must learn new flags
+  - More complex implementation initially

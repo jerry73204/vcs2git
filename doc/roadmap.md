@@ -47,38 +47,47 @@ vcs2git has reached a stable foundation with core functionality for converting V
 
 ---
 
-## Phase 2: Error Handling & Recovery (v0.4.0 - Q1 2024)
+## Phase 2: Error Handling & Recovery (v0.4.0 - Q1 2025)
 
-**Goal**: Improve error handling and add recovery mechanisms
+**Goal**: Improve error handling, add recovery mechanisms, and redesign CLI options
 
 ### Action Items
 
-| Task                  | Description                                                  | Status  | Priority |
-|-----------------------|--------------------------------------------------------------|---------|----------|
-| Commit-based rollback | Track submodule commits and restore on failure (per ADR-010) | 🔴 TODO | High     |
-| Atomic operations     | All-or-nothing processing with complete rollback             | 🔴 TODO | High     |
-| Pre-flight validation | Comprehensive checks before any modifications                | 🔴 TODO | High     |
-| Progress reporting    | Add progress bars for long operations                        | 🔴 TODO | Medium   |
-| Dry-run mode          | Preview operations without changes                           | 🔴 TODO | Medium   |
-| CI/CD setup           | GitHub Actions for multi-platform testing                    | 🔴 TODO | High     |
+| Task                  | Description                                                             | Status  | Priority |
+|-----------------------|-------------------------------------------------------------------------|---------|----------|
+| CLI options redesign  | Implement --only, --ignore, --skip-existing, --sync-selection (ADR-011) | 🔴 TODO | Critical |
+| Deprecation warnings  | Add warnings for old --select, --skip, --update flags                   | 🔴 TODO | High     |
+| Sync implementation   | Add submodule removal logic for --sync-selection                        | 🔴 TODO | High     |
+| Commit-based rollback | Track submodule commits and restore on failure (per ADR-010)            | 🔴 TODO | High     |
+| Atomic operations     | All-or-nothing processing with complete rollback                        | 🔴 TODO | High     |
+| Pre-flight validation | Comprehensive checks before any modifications                           | 🔴 TODO | High     |
+| Progress reporting    | Add progress bars for long operations                                   | 🔴 TODO | Medium   |
+| Dry-run mode          | Preview operations without changes                                      | 🔴 TODO | Medium   |
+| CI/CD setup           | GitHub Actions for multi-platform testing                               | 🔴 TODO | High     |
 
 ### Testing Requirements
 
-| Test Type                      | Description                                                       | Status  | Priority |
-|--------------------------------|-------------------------------------------------------------------|---------|----------|
-| Rollback integration tests     | Test commit restoration in various failure scenarios              | 🔴 TODO | Critical |
-| Atomic operation tests         | Verify all-or-nothing behavior with partial failures              | 🔴 TODO | High     |
-| Validation edge cases          | Test pre-flight checks with dirty repos, conflicts, etc.         | 🔴 TODO | High     |
-| Progress reporting tests       | Ensure accurate progress in normal and error cases                | 🔴 TODO | Medium   |
-| Dry-run tests                  | Verify no modifications occur in dry-run mode                     | 🔴 TODO | Medium   |
-| CI matrix tests                | Test on Ubuntu, macOS, Windows with multiple Git versions         | 🔴 TODO | High     |
-| Failure recovery tests         | Test recovery from network failures, auth errors, etc.            | 🔴 TODO | High     |
+| Test Type                  | Description                                                       | Status  | Priority |
+|----------------------------|-------------------------------------------------------------------|---------|----------|
+| CLI option tests           | Test --only, --ignore, --skip-existing, --sync-selection behavior | 🔴 TODO | Critical |
+| Migration tests            | Verify deprecation warnings and flag compatibility                | 🔴 TODO | Critical |
+| Sync selection tests       | Test removal logic with various selection combinations            | 🔴 TODO | Critical |
+| Rollback integration tests | Test commit restoration in various failure scenarios              | 🔴 TODO | Critical |
+| Atomic operation tests     | Verify all-or-nothing behavior with partial failures              | 🔴 TODO | High     |
+| Validation edge cases      | Test pre-flight checks with dirty repos, conflicts, etc.          | 🔴 TODO | High     |
+| Progress reporting tests   | Ensure accurate progress in normal and error cases                | 🔴 TODO | Medium   |
+| Dry-run tests              | Verify no modifications occur in dry-run mode                     | 🔴 TODO | Medium   |
+| CI matrix tests            | Test on Ubuntu, macOS, Windows with multiple Git versions         | 🔴 TODO | High     |
+| Failure recovery tests     | Test recovery from network failures, auth errors, etc.            | 🔴 TODO | High     |
 
 ### Deliverables
+- Redesigned CLI with clearer options and better defaults
+- Full synchronization capabilities with --sync-selection
 - Robust error recovery with full test coverage
 - Better user feedback
 - CI/CD pipeline with cross-platform testing
 - 90%+ test coverage for error paths
+- Migration guide for v0.3.x users
 
 ---
 
@@ -116,7 +125,7 @@ vcs2git has reached a stable foundation with core functionality for converting V
 
 ---
 
-## Phase 4: Configuration & Flexibility (v0.6.0 - Q3 2024)
+## Phase 4: Configuration & Flexibility (v0.6.0 - Q3 2025)
 
 **Goal**: Add configuration options and advanced features
 
@@ -125,22 +134,22 @@ vcs2git has reached a stable foundation with core functionality for converting V
 | Task                  | Description                                   | Status  | Priority |
 |-----------------------|-----------------------------------------------|---------|----------|
 | Configuration file    | Support .vcs2git.toml for persistent settings | 🔴 TODO | Medium   |
-| Submodule cleanup     | Remove submodules not in .repos file          | 🔴 TODO | Medium   |
 | Custom naming         | Allow different submodule names from paths    | 🔴 TODO | Low      |
 | Template support      | Variables in .repos files                     | 🔴 TODO | Low      |
 | Multiple auth methods | Add token and SSH key file support            | 🔴 TODO | Low      |
 | Recursive processing  | Handle nested .repos files                    | 🔴 TODO | Low      |
+| Flag aliases          | Support short flags (-o, -i, -s)              | 🔴 TODO | Low      |
 
 ### Testing Requirements
 
 | Test Type                 | Description                                           | Status  | Priority |
 |---------------------------|-------------------------------------------------------|---------|----------|
 | Configuration tests       | Test loading, validation, and merging of config files | 🔴 TODO | Medium   |
-| Cleanup safety tests      | Verify cleanup doesn't remove untracked submodules    | 🔴 TODO | High     |
 | Auth method tests         | Test SSH keys, tokens, and fallback behavior          | 🔴 TODO | Medium   |
 | Template expansion tests  | Test variable substitution in .repos files            | 🔴 TODO | Low      |
 | Recursive operation tests | Test nested .repos with circular dependencies         | 🔴 TODO | Medium   |
 | Config override tests     | Test CLI args override config file settings           | 🔴 TODO | Medium   |
+| Flag alias tests          | Test short flag equivalence to long flags             | 🔴 TODO | Low      |
 
 ### Deliverables
 - Flexible configuration with comprehensive tests
@@ -313,14 +322,14 @@ vcs2git has reached a stable foundation with core functionality for converting V
 
 ## Release Schedule
 
-| Version | Target Date | Focus Area                  | Status      |
-|---------|-------------|-----------------------------|-------------|
-| v0.3.1  | Immediate   | Critical bug fixes          | ✅ COMPLETED |
-| v0.4.0  | Q1 2024     | Error handling & recovery   | 🔴 Planning |
-| v0.5.0  | Q2 2024     | Performance & UX            | 🔴 Planning |
-| v0.6.0  | Q3 2024     | Configuration & flexibility | 🔴 Planning |
-| v0.7.0  | Q4 2024     | Git optimizations           | 🔴 Planning |
-| v1.0.0  | Q1 2025     | Stable release              | 🔴 Planning |
+| Version | Target Date | Focus Area                           | Status      |
+|---------|-------------|--------------------------------------|-------------|
+| v0.3.1  | Immediate   | Critical bug fixes                   | ✅ COMPLETED |
+| v0.4.0  | Q1 2025     | CLI redesign, error handling & sync  | 🔴 Planning |
+| v0.5.0  | Q2 2025     | Performance & UX                     | 🔴 Planning |
+| v0.6.0  | Q3 2025     | Configuration & flexibility          | 🔴 Planning |
+| v0.7.0  | Q4 2025     | Git optimizations                    | 🔴 Planning |
+| v1.0.0  | Q1 2026     | Stable release                       | 🔴 Planning |
 
 ---
 
