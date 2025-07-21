@@ -61,7 +61,7 @@ pub fn checkout_to_version(
     Ok(())
 }
 
-/// Remove a submodule (for rollback of new additions)
+/// Remove a submodule (for sync-selection)
 pub fn remove_submodule(_repo: &Repository, path: &Path) -> Result<()> {
     let path_str = path.to_string_lossy();
 
@@ -96,6 +96,72 @@ pub fn remove_submodule(_repo: &Repository, path: &Path) -> Result<()> {
         let content = fs::read_to_string(&gitmodules_path)?;
         if content.trim().is_empty() {
             fs::remove_file(&gitmodules_path)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Remove a submodule during rollback (more lenient, for partially created submodules)
+pub fn remove_submodule_rollback(repo: &Repository, path: &Path) -> Result<()> {
+    let path_str = path.to_string_lossy();
+
+    // Try to deinitialize the submodule if it exists
+    // This may fail if the submodule was never properly initialized
+    let _ = Command::new("git")
+        .args(["submodule", "deinit", "-f", &path_str])
+        .status();
+
+    // Try to remove from index if it exists there
+    let _ = Command::new("git")
+        .args(["rm", "-f", "--cached", &path_str])
+        .status();
+
+    // Clean up .git/modules directory
+    let modules_path = PathBuf::from(".git/modules").join(path);
+    if modules_path.exists() {
+        let _ = fs::remove_dir_all(&modules_path);
+    }
+
+    // Clean up any directories that were created
+    if path.exists() {
+        let _ = fs::remove_dir_all(path);
+    }
+
+    // Manually remove the submodule entry from .gitmodules
+    let gitmodules_path = PathBuf::from(".gitmodules");
+    if gitmodules_path.exists() {
+        let content = fs::read_to_string(&gitmodules_path)?;
+        let mut new_content = String::new();
+        let mut in_submodule_section = false;
+        let submodule_header = format!("[submodule \"{path_str}\"]");
+
+        for line in content.lines() {
+            if line.trim() == submodule_header {
+                in_submodule_section = true;
+                continue;
+            }
+
+            if in_submodule_section && line.starts_with('[') {
+                in_submodule_section = false;
+            }
+
+            if !in_submodule_section {
+                new_content.push_str(line);
+                new_content.push('\n');
+            }
+        }
+
+        let new_content = new_content.trim();
+        if new_content.is_empty() {
+            // Remove empty .gitmodules file
+            fs::remove_file(&gitmodules_path)?;
+            // Also remove from index
+            let mut index = repo.index()?;
+            let _ = index.remove_path(Path::new(".gitmodules"));
+            let _ = index.write();
+        } else {
+            fs::write(&gitmodules_path, new_content)?;
         }
     }
 

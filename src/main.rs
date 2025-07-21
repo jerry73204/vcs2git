@@ -8,7 +8,7 @@ mod vcs;
 
 use crate::{
     cli::Opts,
-    git_ops::{checkout_to_version, fetch, remove_submodule},
+    git_ops::{checkout_to_version, fetch, remove_submodule, remove_submodule_rollback},
     progress::ProgressReporter,
     state::SubmoduleStateTracker,
     utils::{check_disjoint, check_subset},
@@ -159,7 +159,7 @@ fn main() -> Result<()> {
 
             // Remove any newly added submodules
             for path in completed_new {
-                if let Err(remove_err) = remove_submodule(&root_repo, path) {
+                if let Err(remove_err) = remove_submodule_rollback(&root_repo, path) {
                     eprintln!(
                         "Warning: Failed to remove {}: {}",
                         path.display(),

@@ -156,47 +156,7 @@ fn test_ignore_flag() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_deprecated_select_warning() -> Result<()> {
-    let temp_dir = TempDir::new()?;
-    let main_repo_path = temp_dir.path().join("main");
-    fs::create_dir(&main_repo_path)?;
-    let _main_repo = create_test_repo(&main_repo_path)?;
-
-    let (repo1, _, _) = setup_test_repos(&temp_dir)?;
-
-    let repos_content = format!(
-        r#"repositories:
-  test/repo1:
-    type: git
-    url: file://{}
-    version: main
-"#,
-        repo1
-    );
-
-    let repos_file = main_repo_path.join("test.repos");
-    fs::write(&repos_file, &repos_content)?;
-
-    // Run vcs2git with deprecated --select flag
-    let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
-        .current_dir(&main_repo_path)
-        .args(&[
-            repos_file.to_str().unwrap(),
-            "src",
-            "--select",
-            "test/repo1",
-        ])
-        .output()?;
-
-    // Should succeed but show deprecation warning
-    assert!(output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("--select is deprecated"));
-    assert!(stderr.contains("Use --only instead"));
-
-    Ok(())
-}
+// Test removed - --select flag was removed in favor of --only
 
 #[test]
 fn test_skip_existing_flag() -> Result<()> {
@@ -349,11 +309,14 @@ fn test_sync_selection_remove_unlisted() -> Result<()> {
 
     assert!(output.status.success());
 
-    // Commit the changes - need to add all files including .gitmodules
+    // Commit the changes - need to add all files including .gitmodules and submodule entries
     let sig = git2::Signature::now("Test User", "test@example.com")?;
     let mut index = main_repo.index()?;
-    // Add .gitmodules file to the index
+    // Add .gitmodules file and all submodule entries to the index
     index.add_path(Path::new(".gitmodules"))?;
+    index.add_path(Path::new("src/test/repo1"))?;
+    index.add_path(Path::new("src/test/repo2"))?;
+    index.add_path(Path::new("src/test/repo3"))?;
     index.write()?;
     let tree_id = index.write_tree()?;
     let tree = main_repo.find_tree(tree_id)?;
@@ -442,11 +405,14 @@ fn test_sync_selection_with_only() -> Result<()> {
 
     assert!(output.status.success());
 
-    // Commit the changes - need to add all files including .gitmodules
+    // Commit the changes - need to add all files including .gitmodules and submodule entries
     let sig = git2::Signature::now("Test User", "test@example.com")?;
     let mut index = main_repo.index()?;
-    // Add .gitmodules file to the index
+    // Add .gitmodules file and all submodule entries to the index
     index.add_path(Path::new(".gitmodules"))?;
+    index.add_path(Path::new("src/test/repo1"))?;
+    index.add_path(Path::new("src/test/repo2"))?;
+    index.add_path(Path::new("src/test/repo3"))?;
     index.write()?;
     let tree_id = index.write_tree()?;
     let tree = main_repo.find_tree(tree_id)?;
