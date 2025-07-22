@@ -10,15 +10,15 @@ repository = "https://github.com/jerry73204/vcs2git.git"
 
 [dependencies]
 color-eyre = "0.6"
-clap = { version = "4.5.1", features = ["derive"] }
-git2 = "0.18.2"
-indexmap = { version = "2.2.3", features = ["serde"] }
-serde = { version = "1.0.196", features = ["derive"] }
-serde_yaml = "0.9.31"
-url = { version = "2.5.0", features = ["serde"] }
-indicatif = "0.17"
+clap = { version = "4.5.41", features = ["derive"] }
+git2 = "0.20.2"
+indexmap = { version = "2.10.0", features = ["serde"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_yaml = "0.9.34"
+url = { version = "2.5.4", features = ["serde"] }
+indicatif = "0.18"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
 
 [dev-dependencies]
-tempfile = "3.10"
+tempfile = "3.20"
