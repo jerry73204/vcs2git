@@ -1,6 +1,7 @@
 use anyhow::Result;
 use git2::Repository;
 use std::{collections::HashMap, path::PathBuf};
+use tracing::info;
 
 /// Tracks original submodule states for rollback
 #[derive(Debug)]
@@ -49,10 +50,10 @@ impl SubmoduleStateTracker {
 
     /// Restore all submodules to their original commits
     pub fn rollback(&self, repo: &Repository) -> Result<()> {
-        println!("Rolling back submodule changes...");
+        info!("Rolling back submodule changes...");
 
         for (name, state) in &self.original_states {
-            println!("  Restoring {} to commit {}", name, state.commit);
+            info!("  Restoring {} to commit {}", name, state.commit);
 
             let submodule = repo.find_submodule(name)?;
             let sub_repo = submodule.open()?;
@@ -68,7 +69,7 @@ impl SubmoduleStateTracker {
             index.write()?;
         }
 
-        println!("Rollback complete. All submodules restored to original state.");
+        info!("Rollback complete. All submodules restored to original state.");
         Ok(())
     }
 }

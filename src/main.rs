@@ -24,8 +24,12 @@ use std::{
     io::BufReader,
     path::{Path, PathBuf},
 };
+use tracing::{error, info, warn};
 
 fn main() -> Result<()> {
+    // Initialize tracing
+    tracing_subscriber::fmt::init();
+
     let opts = Opts::parse();
 
     // Open the repository
@@ -61,9 +65,9 @@ fn main() -> Result<()> {
     validate_main_repo_clean(&root_repo)?;
 
     // Validate existing submodule states
-    println!("Checking existing submodule states...");
+    info!("Checking existing submodule states...");
     validate_submodule_states(&root_repo)?;
-    println!("All validation checks passed.");
+    info!("All validation checks passed.");
 
     let selected_repos: HashMap<PathBuf, _> = {
         let all_suffixes: HashSet<&Path> = repos_list
@@ -155,16 +159,12 @@ fn main() -> Result<()> {
     // Handle rollback if operation failed
     if let Err(e) = result {
         if !opts.dry_run {
-            eprintln!("\nOperation failed. Rolling back all changes...");
+            error!("Operation failed. Rolling back all changes...");
 
             // Remove any newly added submodules
             for path in completed_new {
                 if let Err(remove_err) = remove_submodule_rollback(&root_repo, path) {
-                    eprintln!(
-                        "Warning: Failed to remove {}: {}",
-                        path.display(),
-                        remove_err
-                    );
+                    warn!("Failed to remove {}: {}", path.display(), remove_err);
                 }
             }
 
@@ -181,7 +181,7 @@ fn main() -> Result<()> {
 
             // Restore original states
             if let Err(rollback_err) = tracker.rollback(&root_repo) {
-                eprintln!("Error during rollback: {rollback_err}");
+                error!("Error during rollback: {rollback_err}");
             }
 
             bail!("Operation failed and was rolled back: {}", e);
@@ -193,14 +193,14 @@ fn main() -> Result<()> {
     // Only show found extras if not syncing
     if !opts.sync_selection {
         for (path, _submod_name) in removed_repos {
-            println!("Found extra submodule {}", path.display());
+            info!("Found extra submodule {}", path.display());
         }
     }
 
     if opts.progress {
         progress.finish_with_message("All operations completed successfully!");
     } else {
-        println!("\nAll operations completed successfully!");
+        info!("All operations completed successfully!");
     }
 
     Ok(())
@@ -235,7 +235,7 @@ fn process_submodule_operations<'a>(
                 Ok(repo) => repo,
                 Err(e) => {
                     // Submodule was created but clone failed - need cleanup
-                    eprintln!("Failed to clone submodule: {e}");
+                    error!("Failed to clone submodule: {e}");
                     return Err(e.into());
                 }
             };
@@ -256,7 +256,7 @@ fn process_submodule_operations<'a>(
                 progress.inc(1);
             }
             Err(e) => {
-                eprintln!("Failed to add {}: {}", path.display(), e);
+                error!("Failed to add {}: {}", path.display(), e);
                 // The submodule entry was created but operation failed
                 completed_new.push(path);
                 return Err(e);
@@ -294,7 +294,7 @@ fn process_submodule_operations<'a>(
                     progress.inc(1);
                 }
                 Err(e) => {
-                    eprintln!("Failed to update {}: {}", path.display(), e);
+                    error!("Failed to update {}: {}", path.display(), e);
                     return Err(e);
                 }
             }
@@ -317,7 +317,7 @@ fn process_submodule_operations<'a>(
             progress.set_message(&format!("Removing {}", path.display()));
 
             if let Err(e) = remove_submodule(root_repo, path) {
-                eprintln!("Failed to remove {}: {}", path.display(), e);
+                error!("Failed to remove {}: {}", path.display(), e);
                 return Err(e);
             }
             progress.inc(1);

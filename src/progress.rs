@@ -1,5 +1,6 @@
 use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;
+use tracing::info;
 
 pub struct ProgressReporter {
     enabled: bool,
@@ -50,10 +51,10 @@ impl ProgressReporter {
             if let Some(bar) = &self.bar {
                 bar.println(msg);
             } else {
-                println!("{msg}");
+                info!("{msg}");
             }
         } else {
-            println!("{msg}");
+            info!("{msg}");
         }
     }
 }
