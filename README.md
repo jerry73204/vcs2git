@@ -47,7 +47,6 @@ Options:
   --sync-selection           Remove submodules that are not in the current selection
   --no-checkout              Do not checkout the files in each submodule
   --dry-run                  Preview what would be done without making changes
-  --progress                 Show progress during operations
   -h, --help                 Print help
 ```
 

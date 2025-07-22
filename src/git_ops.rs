@@ -69,15 +69,13 @@ pub fn remove_submodule(_repo: &Repository, path: &Path) -> Result<()> {
     let status = Command::new("git")
         .args(["submodule", "deinit", "-f", &path_str])
         .status()?;
-    
+
     if !status.success() {
         anyhow::bail!("Failed to deinitialize submodule {}", path_str);
     }
 
     // Remove the submodule from the working tree and index
-    let status = Command::new("git")
-        .args(["rm", "-f", &path_str])
-        .status()?;
+    let status = Command::new("git").args(["rm", "-f", &path_str]).status()?;
 
     if !status.success() {
         anyhow::bail!("Failed to remove submodule {} from index", path_str);

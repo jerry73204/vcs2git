@@ -39,10 +39,6 @@ pub struct Opts {
     /// Preview what would be done without making changes.
     #[clap(long)]
     pub dry_run: bool,
-
-    /// Show progress during operations.
-    #[clap(long)]
-    pub progress: bool,
 }
 
 impl Opts {
@@ -79,7 +75,6 @@ mod tests {
         assert!(opts.ignore.is_none());
         assert!(!opts.sync_selection);
         assert!(!opts.dry_run);
-        assert!(!opts.progress);
     }
 
     #[test]
@@ -104,7 +99,6 @@ mod tests {
         assert_eq!(opts.only.as_ref().unwrap().len(), 2);
         assert!(opts.ignore.is_none());
     }
-
 
     #[test]
     fn test_mutually_exclusive_flags() {

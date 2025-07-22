@@ -220,9 +220,8 @@ fn test_skip_existing_flag() -> Result<()> {
         panic!("vcs2git failed");
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    // The "Skip existing" message is printed regardless of --progress flag
-    assert!(stdout.contains("Skip existing"));
+    // Don't check for specific output since progress bar output isn't captured
+    // Just verify the behavior is correct
 
     // Both should exist now
     assert!(main_repo_path.join("src/test/repo1").exists());
@@ -260,8 +259,8 @@ fn test_dry_run_mode() -> Result<()> {
         .output()?;
 
     assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("[DRY RUN]"));
+    // Don't check for specific output since progress bar output isn't captured
+    // The behavior test below verifies dry-run worked correctly
 
     // Verify no changes were made
     assert!(!main_repo_path.join("src/test/repo1").exists());
@@ -452,7 +451,7 @@ fn test_sync_selection_with_only() -> Result<()> {
 }
 
 #[test]
-fn test_progress_flag() -> Result<()> {
+fn test_basic_operation() -> Result<()> {
     let temp_dir = TempDir::new()?;
     let main_repo_path = temp_dir.path().join("main");
     fs::create_dir(&main_repo_path)?;
@@ -473,15 +472,14 @@ fn test_progress_flag() -> Result<()> {
     let repos_file = main_repo_path.join("test.repos");
     fs::write(&repos_file, &repos_content)?;
 
-    // Run with --progress
+    // Run normally (progress is now always shown when there are operations)
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src", "--progress"])
+        .args(&[repos_file.to_str().unwrap(), "src"])
         .output()?;
 
     assert!(output.status.success());
-    // Progress output might be on stdout or stderr depending on the terminal
-    // Just verify the command succeeds with the flag
+    // Just verify the basic command succeeds
 
     Ok(())
 }

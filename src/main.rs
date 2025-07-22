@@ -139,8 +139,13 @@ fn main() -> Result<()> {
             0
         };
 
+    if total_operations == 0 {
+        info!("No operations to perform - all repositories are up to date");
+        return Ok(());
+    }
+
     // Create progress reporter
-    let progress = ProgressReporter::new(opts.progress, total_operations as u64);
+    let progress = ProgressReporter::new(total_operations as u64);
 
     // Track which operations we've completed
     let mut completed_new = Vec::new();
@@ -197,11 +202,7 @@ fn main() -> Result<()> {
         }
     }
 
-    if opts.progress {
-        progress.finish_with_message("All operations completed successfully!");
-    } else {
-        info!("All operations completed successfully!");
-    }
+    progress.finish_with_message("All operations completed successfully!");
 
     Ok(())
 }
@@ -310,15 +311,13 @@ fn process_submodule_operations<'a>(
         for (path, _submod_name) in removed_repos {
             if opts.dry_run {
                 progress.println(&format!("[DRY RUN] Would remove {}", path.display()));
-                progress.inc(1);
-                continue;
-            }
+            } else {
+                progress.set_message(&format!("Removing {}", path.display()));
 
-            progress.set_message(&format!("Removing {}", path.display()));
-
-            if let Err(e) = remove_submodule(root_repo, path) {
-                error!("Failed to remove {}: {}", path.display(), e);
-                return Err(e);
+                if let Err(e) = remove_submodule(root_repo, path) {
+                    error!("Failed to remove {}: {}", path.display(), e);
+                    return Err(e);
+                }
             }
             progress.inc(1);
         }
