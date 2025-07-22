@@ -89,23 +89,6 @@ vcs2git autoware.repos src --dry-run
 vcs2git autoware.repos src --sync-selection --dry-run
 ```
 
-### Migration from v0.3.x
-
-The following options have been renamed for clarity:
-- `--select` → `--only`
-- `--skip` → `--ignore`
-- `--update` → Updates are now done by default; use `--skip-existing` to disable
-
-### Features
-
-- **Selective Processing**: Choose which repositories to process with `--only` or `--ignore`
-- **Synchronization**: Keep submodules in sync with the repos file using `--sync-selection`
-- **Safe Operations**: All operations are atomic with automatic rollback on failure
-- **Progress Reporting**: Optional progress bars for long operations
-- **Dry Run Mode**: Preview changes before applying them
-- **Clean State Validation**: Ensures no uncommitted changes before operations
-
-
 # License
 
 This software is distributed under MIT license. Please see the
