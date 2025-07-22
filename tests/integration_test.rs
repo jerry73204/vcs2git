@@ -61,7 +61,7 @@ fn test_simple_add_submodule() -> Result<()> {
     // Run vcs2git
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src"])
+        .args([repos_file.to_str().unwrap(), "src"])
         .output()?;
 
     if !output.status.success() {
@@ -100,12 +100,12 @@ fn test_validation_dirty_repo() -> Result<()> {
     // Create empty .repos file
     let repos_content = "repositories: {}";
     let repos_file = repo_path.join("test.repos");
-    create_test_repos_file(&repos_file, &repos_content)?;
+    create_test_repos_file(&repos_file, repos_content)?;
 
     // Run vcs2git - should fail due to staged changes
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src"])
+        .args([repos_file.to_str().unwrap(), "src"])
         .output()?;
 
     assert!(
@@ -140,12 +140,12 @@ fn test_rollback_on_failure() -> Result<()> {
 "#;
 
     let repos_file = main_repo_path.join("test.repos");
-    create_test_repos_file(&repos_file, &repos_content)?;
+    create_test_repos_file(&repos_file, repos_content)?;
 
     // Run vcs2git - should fail
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src"])
+        .args([repos_file.to_str().unwrap(), "src"])
         .output()?;
 
     if output.status.success() {
@@ -167,7 +167,7 @@ fn test_rollback_on_failure() -> Result<()> {
     // Check git status
     let git_status = Command::new("git")
         .current_dir(&main_repo_path)
-        .args(&["status", "--porcelain"])
+        .args(["status", "--porcelain"])
         .output()?;
     eprintln!(
         "Git status:\n{}",
@@ -179,7 +179,7 @@ fn test_rollback_on_failure() -> Result<()> {
     if gitmodules_path.exists() {
         // If .gitmodules exists, it should be empty or only have the failed entry
         let contents = fs::read_to_string(&gitmodules_path)?;
-        eprintln!(".gitmodules contents:\n{}", contents);
+        eprintln!(".gitmodules contents:\n{contents}");
 
         // Check that no actual submodule directories were created
         let submodule_path = main_repo_path.join("src/test/nonexistent");
@@ -219,12 +219,12 @@ fn test_unsupported_repository_type() -> Result<()> {
 "#;
 
     let repos_file = repo_path.join("test.repos");
-    create_test_repos_file(&repos_file, &repos_content)?;
+    create_test_repos_file(&repos_file, repos_content)?;
 
     // Run vcs2git - should fail
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src"])
+        .args([repos_file.to_str().unwrap(), "src"])
         .output()?;
 
     assert!(

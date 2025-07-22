@@ -58,18 +58,17 @@ fn test_only_flag() -> Result<()> {
         r#"repositories:
   test/repo1:
     type: git
-    url: file://{}
+    url: file://{repo1}
     version: main
   test/repo2:
     type: git
-    url: file://{}
+    url: file://{repo2}
     version: main
   test/repo3:
     type: git
-    url: file://{}
+    url: file://{repo3}
     version: main
-"#,
-        repo1, repo2, repo3
+"#
     );
 
     let repos_file = main_repo_path.join("test.repos");
@@ -78,7 +77,7 @@ fn test_only_flag() -> Result<()> {
     // Run vcs2git with --only flag
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[
+        .args([
             repos_file.to_str().unwrap(),
             "src",
             "--only",
@@ -115,18 +114,17 @@ fn test_ignore_flag() -> Result<()> {
         r#"repositories:
   test/repo1:
     type: git
-    url: file://{}
+    url: file://{repo1}
     version: main
   test/repo2:
     type: git
-    url: file://{}
+    url: file://{repo2}
     version: main
   test/repo3:
     type: git
-    url: file://{}
+    url: file://{repo3}
     version: main
-"#,
-        repo1, repo2, repo3
+"#
     );
 
     let repos_file = main_repo_path.join("test.repos");
@@ -135,7 +133,7 @@ fn test_ignore_flag() -> Result<()> {
     // Run vcs2git with --ignore flag
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[
+        .args([
             repos_file.to_str().unwrap(),
             "src",
             "--ignore",
@@ -172,14 +170,13 @@ fn test_skip_existing_flag() -> Result<()> {
         r#"repositories:
   test/repo1:
     type: git
-    url: file://{}
+    url: file://{repo1}
     version: main
   test/repo2:
     type: git
-    url: file://{}
+    url: file://{repo2}
     version: main
-"#,
-        repo1, repo2
+"#
     );
 
     let repos_file = main_repo_path.join("test.repos");
@@ -188,7 +185,7 @@ fn test_skip_existing_flag() -> Result<()> {
     // First, add repo1 only
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src", "--only", "test/repo1"])
+        .args([repos_file.to_str().unwrap(), "src", "--only", "test/repo1"])
         .output()?;
 
     assert!(output.status.success());
@@ -212,7 +209,7 @@ fn test_skip_existing_flag() -> Result<()> {
     // Now run with --skip-existing, it should add repo2 but skip repo1
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src", "--skip-existing"])
+        .args([repos_file.to_str().unwrap(), "src", "--skip-existing"])
         .output()?;
 
     if !output.status.success() {
@@ -243,10 +240,9 @@ fn test_dry_run_mode() -> Result<()> {
         r#"repositories:
   test/repo1:
     type: git
-    url: file://{}
+    url: file://{repo1}
     version: main
-"#,
-        repo1
+"#
     );
 
     let repos_file = main_repo_path.join("test.repos");
@@ -255,7 +251,7 @@ fn test_dry_run_mode() -> Result<()> {
     // Run with --dry-run
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src", "--dry-run"])
+        .args([repos_file.to_str().unwrap(), "src", "--dry-run"])
         .output()?;
 
     assert!(output.status.success());
@@ -283,18 +279,17 @@ fn test_sync_selection_remove_unlisted() -> Result<()> {
         r#"repositories:
   test/repo1:
     type: git
-    url: file://{}
+    url: file://{repo1}
     version: main
   test/repo2:
     type: git
-    url: file://{}
+    url: file://{repo2}
     version: main
   test/repo3:
     type: git
-    url: file://{}
+    url: file://{repo3}
     version: main
-"#,
-        repo1, repo2, repo3
+"#
     );
 
     let repos_file = main_repo_path.join("test.repos");
@@ -303,7 +298,7 @@ fn test_sync_selection_remove_unlisted() -> Result<()> {
     // Add all repos first
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src"])
+        .args([repos_file.to_str().unwrap(), "src"])
         .output()?;
 
     assert!(output.status.success());
@@ -334,14 +329,13 @@ fn test_sync_selection_remove_unlisted() -> Result<()> {
         r#"repositories:
   test/repo1:
     type: git
-    url: file://{}
+    url: file://{repo1}
     version: main
   test/repo2:
     type: git
-    url: file://{}
+    url: file://{repo2}
     version: main
-"#,
-        repo1, repo2
+"#
     );
 
     fs::write(&repos_file, &repos_content_partial)?;
@@ -349,7 +343,7 @@ fn test_sync_selection_remove_unlisted() -> Result<()> {
     // Run with --sync-selection to remove repo3
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src", "--sync-selection"])
+        .args([repos_file.to_str().unwrap(), "src", "--sync-selection"])
         .output()?;
 
     if !output.status.success() {
@@ -379,18 +373,17 @@ fn test_sync_selection_with_only() -> Result<()> {
         r#"repositories:
   test/repo1:
     type: git
-    url: file://{}
+    url: file://{repo1}
     version: main
   test/repo2:
     type: git
-    url: file://{}
+    url: file://{repo2}
     version: main
   test/repo3:
     type: git
-    url: file://{}
+    url: file://{repo3}
     version: main
-"#,
-        repo1, repo2, repo3
+"#
     );
 
     let repos_file = main_repo_path.join("test.repos");
@@ -399,7 +392,7 @@ fn test_sync_selection_with_only() -> Result<()> {
     // Add all repos
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src"])
+        .args([repos_file.to_str().unwrap(), "src"])
         .output()?;
 
     assert!(output.status.success());
@@ -428,7 +421,7 @@ fn test_sync_selection_with_only() -> Result<()> {
     // Run with --only and --sync-selection to keep only repo1
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[
+        .args([
             repos_file.to_str().unwrap(),
             "src",
             "--only",
@@ -463,10 +456,9 @@ fn test_basic_operation() -> Result<()> {
         r#"repositories:
   test/repo1:
     type: git
-    url: file://{}
+    url: file://{repo1}
     version: main
-"#,
-        repo1
+"#
     );
 
     let repos_file = main_repo_path.join("test.repos");
@@ -475,7 +467,7 @@ fn test_basic_operation() -> Result<()> {
     // Run normally (progress is now always shown when there are operations)
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src"])
+        .args([repos_file.to_str().unwrap(), "src"])
         .output()?;
 
     assert!(output.status.success());

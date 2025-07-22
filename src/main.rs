@@ -384,8 +384,7 @@ mod tests {
             RepoType::Git => panic!("Should be unknown type"),
             RepoType::Unknown(ty) => {
                 let error_msg = format!(
-                    "Repository type '{}' is not supported. Only 'git' repositories are supported.",
-                    ty
+                    "Repository type '{ty}' is not supported. Only 'git' repositories are supported."
                 );
                 assert_eq!(error_msg, "Repository type 'mercurial' is not supported. Only 'git' repositories are supported.");
             }

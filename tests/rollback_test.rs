@@ -91,7 +91,7 @@ fn test_rollback_on_partial_failure() -> Result<()> {
     // Run vcs2git - should fail on invalid repo
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src"])
+        .args([repos_file.to_str().unwrap(), "src"])
         .output()?;
 
     assert!(!output.status.success());
@@ -156,7 +156,7 @@ fn test_rollback_restores_existing_submodule_commits() -> Result<()> {
     // Add submodule
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src"])
+        .args([repos_file.to_str().unwrap(), "src"])
         .output()?;
 
     assert!(output.status.success());
@@ -195,7 +195,7 @@ fn test_rollback_restores_existing_submodule_commits() -> Result<()> {
     // Run vcs2git - should fail on invalid repo
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src"])
+        .args([repos_file.to_str().unwrap(), "src"])
         .output()?;
 
     assert!(!output.status.success());
@@ -249,7 +249,7 @@ fn test_rollback_with_sync_selection() -> Result<()> {
     // Add both repos
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src"])
+        .args([repos_file.to_str().unwrap(), "src"])
         .output()?;
 
     assert!(output.status.success());
@@ -289,7 +289,7 @@ fn test_rollback_with_sync_selection() -> Result<()> {
     // Try to sync - should fail but restore original state
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src", "--sync-selection"])
+        .args([repos_file.to_str().unwrap(), "src", "--sync-selection"])
         .output()?;
 
     assert!(!output.status.success());
@@ -317,12 +317,12 @@ fn test_dry_run_rollback_not_triggered() -> Result<()> {
 "#;
 
     let repos_file = main_repo_path.join("test.repos");
-    fs::write(&repos_file, &repos_content)?;
+    fs::write(&repos_file, repos_content)?;
 
     // Run with --dry-run - should report what would happen but not fail
     let output = Command::new(env!("CARGO_BIN_EXE_vcs2git"))
         .current_dir(&main_repo_path)
-        .args(&[repos_file.to_str().unwrap(), "src", "--dry-run"])
+        .args([repos_file.to_str().unwrap(), "src", "--dry-run"])
         .output()?;
 
     // In dry-run mode, it should succeed since no actual operations are performed

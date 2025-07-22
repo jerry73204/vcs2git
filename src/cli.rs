@@ -65,7 +65,7 @@ mod tests {
     #[test]
     fn test_opts_parsing() {
         // Test basic argument parsing
-        let opts = Opts::try_parse_from(&["vcs2git", "test.repos", "src"]).unwrap();
+        let opts = Opts::try_parse_from(["vcs2git", "test.repos", "src"]).unwrap();
 
         assert_eq!(opts.repo_file, PathBuf::from("test.repos"));
         assert_eq!(opts.prefix, PathBuf::from("src"));
@@ -79,7 +79,7 @@ mod tests {
 
     #[test]
     fn test_new_flags() {
-        let opts = Opts::try_parse_from(&[
+        let opts = Opts::try_parse_from([
             "vcs2git",
             "--no-checkout",
             "--skip-existing",
@@ -103,7 +103,7 @@ mod tests {
     #[test]
     fn test_mutually_exclusive_flags() {
         // --only and --ignore are mutually exclusive
-        let result = Opts::try_parse_from(&[
+        let result = Opts::try_parse_from([
             "vcs2git",
             "--only",
             "repo1",
