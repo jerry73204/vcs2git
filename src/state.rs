@@ -1,4 +1,4 @@
-use anyhow::Result;
+use color_eyre::{eyre::eyre, Result};
 use git2::Repository;
 use std::{collections::HashMap, path::PathBuf};
 use tracing::info;
@@ -27,7 +27,7 @@ impl SubmoduleStateTracker {
         for submodule in repo.submodules()? {
             let name = submodule
                 .name()
-                .ok_or_else(|| anyhow::anyhow!("Submodule without name"))?
+                .ok_or_else(|| eyre!("Submodule without name"))?
                 .to_string();
 
             let state = SubmoduleState {
@@ -35,10 +35,10 @@ impl SubmoduleStateTracker {
                 path: submodule.path().to_path_buf(),
                 commit: submodule
                     .workdir_id()
-                    .ok_or_else(|| anyhow::anyhow!("Submodule {} has no workdir commit", name))?,
+                    .ok_or_else(|| eyre!("Submodule {} has no workdir commit", name))?,
                 url: submodule
                     .url()
-                    .ok_or_else(|| anyhow::anyhow!("Submodule {} has no URL", name))?
+                    .ok_or_else(|| eyre!("Submodule {} has no URL", name))?
                     .to_string(),
             };
 

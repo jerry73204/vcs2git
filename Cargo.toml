@@ -9,7 +9,7 @@ homepage = "https://github.com/jerry73204/vcs2git/"
 repository = "https://github.com/jerry73204/vcs2git.git"
 
 [dependencies]
-anyhow = { version = "1.0.79", features = ["backtrace"] }
+color-eyre = "0.6"
 clap = { version = "4.5.1", features = ["derive"] }
 git2 = "0.18.2"
 indexmap = { version = "2.2.3", features = ["serde"] }

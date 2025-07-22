@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use color_eyre::{eyre::bail, Result};
 use std::{collections::HashSet, fmt::Debug, hash::Hash};
 
 /// Check if a subset is fully contained within a larger set

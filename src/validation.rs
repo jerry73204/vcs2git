@@ -1,5 +1,8 @@
 use crate::vcs::Repo;
-use anyhow::{bail, Result};
+use color_eyre::{
+    eyre::{bail, eyre},
+    Result,
+};
 use git2::Repository;
 use std::{
     collections::HashSet,
@@ -11,7 +14,7 @@ pub fn validate_submodule_states(repo: &Repository) -> Result<()> {
     for submodule in repo.submodules()? {
         let name = submodule
             .name()
-            .ok_or_else(|| anyhow::anyhow!("Submodule without name"))?;
+            .ok_or_else(|| eyre!("Submodule without name"))?;
         let path = submodule.path();
 
         // Check if submodule is initialized
@@ -65,10 +68,10 @@ pub fn validate_submodule_states(repo: &Repository) -> Result<()> {
         let head_oid = sub_repo
             .head()?
             .target()
-            .ok_or_else(|| anyhow::anyhow!("Submodule HEAD has no target"))?;
+            .ok_or_else(|| eyre!("Submodule HEAD has no target"))?;
         let expected_oid = submodule
             .workdir_id()
-            .ok_or_else(|| anyhow::anyhow!("No workdir commit for submodule"))?;
+            .ok_or_else(|| eyre!("No workdir commit for submodule"))?;
 
         if head_oid != expected_oid {
             bail!(

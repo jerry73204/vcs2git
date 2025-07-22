@@ -15,8 +15,11 @@ use crate::{
     validation::{validate_main_repo_clean, validate_repositories, validate_submodule_states},
     vcs::{Repo, RepoType, ReposFile},
 };
-use anyhow::{bail, ensure, Context, Result};
 use clap::Parser;
+use color_eyre::{
+    eyre::{bail, ensure, Context},
+    Result,
+};
 use git2::Repository;
 use std::{
     collections::{HashMap, HashSet},
@@ -27,6 +30,9 @@ use std::{
 use tracing::{error, info, warn};
 
 fn main() -> Result<()> {
+    // Install color-eyre panic and error report handlers
+    color_eyre::install()?;
+
     // Initialize tracing
     tracing_subscriber::fmt::init();
 

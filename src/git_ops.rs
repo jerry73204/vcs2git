@@ -1,4 +1,7 @@
-use anyhow::{Context, Result};
+use color_eyre::{
+    eyre::{bail, Context},
+    Result,
+};
 use git2::{Cred, ErrorClass, ErrorCode, FetchOptions, RemoteCallbacks, Repository};
 use std::{
     fs,
@@ -71,7 +74,7 @@ pub fn remove_submodule(repo: &Repository, path: &Path) -> Result<()> {
 
     let name = submodule
         .name()
-        .ok_or_else(|| anyhow::anyhow!("Submodule has no name"))?;
+        .ok_or_else(|| color_eyre::eyre::eyre!("Submodule has no name"))?;
 
     // Step 1: Remove submodule configuration from .git/config (deinit)
     {
@@ -189,7 +192,7 @@ fn update_gitmodules_file(
 
     if !gitmodules_path.exists() {
         if must_exist {
-            anyhow::bail!(".gitmodules file not found");
+            bail!(".gitmodules file not found");
         }
         return Ok(());
     }
@@ -222,7 +225,7 @@ fn update_gitmodules_file(
     }
 
     if must_exist && !found_section {
-        anyhow::bail!("Submodule section not found in .gitmodules");
+        bail!("Submodule section not found in .gitmodules");
     }
 
     // Write back the modified content
